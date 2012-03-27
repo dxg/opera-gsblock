@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets" version="1.00" id="http://www.example.org/gsblock">
+	<name short="Gsblock">Google search results blocker</name>
+	<description>
+    Lets you block google search results per host.
+  </description>
+  	<author href="http://blog.thecheesestick.com/" email="arek01@gmail.com">Arek</author>
+  	<icon src="icon.png"/>
+    <icon src="images/icon18.png"/>
+    <icon src="images/icon32.png"/>
+    <icon src="images/icon128.png"/>
+    <icon src="images/icon256.png"/>
+</widget>

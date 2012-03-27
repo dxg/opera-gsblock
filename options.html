@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+ <head>
+  <title>Google search results blocker options</title>
+  
+  <style type="text/css">
+    body {
+      background: #c7ccd7;
+    }
+    #container {
+      width: 700px;
+      margin: 100px auto;
+      background: #fcfdfd;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #aaa;
+      border-bottom: 2px solid #777;
+    }
+    form .entry {
+      margin: 1em 0;
+    }
+    form .entry select {
+      display: block;
+      background: #eee;
+      border: 1px solid #ccc;
+      width: 300px;
+    }
+    form .entry select option {
+      padding: 2px 4px;
+    }
+    #export {
+      float: right;
+      width: 300px;
+    }
+    #export textarea#txtexport {
+      width: 280px;
+      height: 100px;
+    }
+  </style>
+  
+  <script type="text/javascript">
+    var background;
+    var select;
+    var txtexport;
+    
+    opera.extension.onmessage = function(event) {
+      // id
+      if(event.data['what'] == 'id') {
+        switch(event.data['name']) {
+          case 'background':
+            background = event.source;
+        }
+        event.source.postMessage({what: 'id', name: 'options'});
+      }
+      
+      if(event.source == background) {
+        switch(event.data['what']) {
+          case 'blocked hosts':
+            remove_search_results(event.data['blocked_hosts']);
+            add_block_links_to_search_results();
+            break;
+          case 'all blocked hosts':
+            update_blocked_hosts_list(event.data['list']);
+            break;
+        }
+      }
+    }
+    
+    window.addEventListener('DOMContentLoaded', function() {
+      background.postMessage({what: 'get blocked hosts'});
+      select = document.querySelector('form .entry.blocked.hosts select');
+      txtexport = document.querySelector('#txtexport');
+      
+      document.querySelector('button[data-role=remove]').addEventListener(
+        'click',function(e) {
+          delete_selected_hosts();
+          
+          e.stopPropagation();
+          return false;
+      },false);
+    });
+    
+    function update_blocked_hosts_list(list) {
+      select.innerHTML = '';
+      list.forEach(function(item) {
+        var option = document.createElement('option');
+        
+        option.value = item;
+        option.label = item;
+        
+        select.appendChild(option);
+      });
+      
+      txtexport.innerHTML = list.join("\n");
+    }
+    
+    function delete_selected_hosts() {
+      var hosts = Array.prototype.filter.call(select.childNodes, function(opt) {
+        return opt.selected;
+      }).map(function(opt) {
+        return opt.value;
+      });
+      
+      background.postMessage({what: 'unblock hosts', list: hosts});
+    }
+  </script>
+  
+ </head>
+ <body>
+ 
+ <div id="container"> 
+  <h2>Google search results blocker options</h2>
+  
+  <div id="export">
+    <form onsubmit="return false;">
+      <div class="entry">
+        <label for="txtexport">Export</label>
+        <textarea readonly id="txtexport"></textarea>
+      </div>
+    </form>
+  </div>
+  
+  <div id="list">
+    <form onsubmit="return false;">
+      <div class="entry blocked hosts">
+        <label for="bhosts">Blocked hosts</label>
+        <select size="20" multiple id="bhosts"></select>
+      </div>
+      <div class="entry">
+        <button data-role="remove">Remove</button>
+      </div>
+    </form>
+  </div>
+  
+  <div id="info">
+    Currently, this does not sync with your google account.<br/>
+    Report issues & fork code at <a href="https://github.com/dxg/opera-gsblock">github</a>.<br/>
+    <br/>
+  </div>
+  
+ </div>
+ 
+</body>
+</html>

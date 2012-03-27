@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script type="text/javascript">
+      var clients = {};
+      var blocked_hosts;
+      
+      window.addEventListener('load', setupConnection, false);
+      
+      function setupConnection(){
+        // When the injected script is activated, it connects with the background process.
+        opera.extension.onconnect = function(event){
+          event.source.postMessage({what: 'id', name: 'background'});
+        }
+        opera.extension.ondisconnect = function(event) {
+          // remove client from list
+          for(var type in clients) {
+            var i = clients[type].indexOf(event.source);
+            if(i >= 0) {
+              //opera.postError('back: removing client ' + event.origin);
+              clients[type].splice(i,1);
+            } else {
+              // Unfortunatelly opera doesn't provide event.source when a
+              // client disconnects. This makes it hard to keep track of
+              // connected clients.
+              //opera.postError('back: disconnect without remove ' + event.origin + ', ' + event.source);
+            }
+          }
+        }
+        
+        opera.extension.onmessage = function(event){
+          if(event.data['what'] == 'id') {
+            // add client to list of clients
+            if(!clients[event.data['name']]) clients[event.data['name']] = [];
+            clients[event.data['name']].push(event.source);
+          } else {
+            handle_message(event);
+          }
+        }
+      }
+      
+      function handle_message(event) {
+        switch(event.data['what']) {
+          case 'get blocked hosts':
+            var list = [];
+            
+            for(var host in blocked_hosts) { list.push(host); }
+            event.source.postMessage({
+              what: 'all blocked hosts',
+              list: get_blocked_hosts_list()
+            });
+            
+            break;
+          case 'check hosts':
+            // Get list of received hosts which should be blocked
+            var list = event.data['hosts'].filter(function(host) {
+              return !!blocked_hosts[host];
+            });
+            
+            // notify userjs about which hosts to block
+            event.source.postMessage({
+              what: 'block hosts',
+              list: list
+            });
+            
+            break;
+          case 'block host':
+            blocked_hosts[event.data['host']] = true;
+            // make it persist
+            save_blocked_hosts(blocked_hosts);
+            
+            // tell everyone to block this host
+            opera.extension.broadcastMessage({
+              what: 'block hosts',
+              list: [event.data['host']]
+            });
+            
+            // update any open options pages
+            message_clients('options', {
+              what: 'all blocked hosts',
+              list: get_blocked_hosts_list()
+            });
+            
+            break;
+          case 'unblock hosts':
+            event.data['list'].forEach(function(host) {
+              delete blocked_hosts[host]
+            });
+            save_blocked_hosts(blocked_hosts);
+            
+            // update any open options pages
+            message_clients('options', {
+              what: 'all blocked hosts',
+              list: get_blocked_hosts_list()
+            });
+            
+            // unblock results on any open google search pages
+            message_clients('userjs', {
+              what: 'unblock hosts',
+              list: event.data['list']
+            });
+            
+            break;
+        }
+      }
+      
+      function message_clients(type, data) {
+        if(clients[type]) {
+          clients[type].forEach(function(source) {
+            try {
+              source.postMessage(data);
+            } catch(e) {
+              // The ondisconnect event should provide us with a source
+              // however opera sets source to null.
+              // This is an ugly work around.
+              delete clients[type][source];
+            }
+          });
+        }
+      }
+      
+      // as an array
+      function get_blocked_hosts_list() {
+        var list = [];
+        for(var host in blocked_hosts) { list.push(host); }
+        return list;
+      }
+      
+      // as a hash
+      function get_blocked_hosts() {
+        bh_str = widget.preferences.getItem('blocked hosts');
+        if(bh_str) {
+          return JSON.parse(widget.preferences.getItem('blocked hosts'));
+        } else {
+          return {};
+        }
+      }
+      
+      // hosts: hash of blocked hosts
+      function save_blocked_hosts(hosts) {
+        widget.preferences.setItem('blocked hosts', JSON.stringify(hosts));
+      }
+      
+      blocked_hosts = get_blocked_hosts();
+    </script>
+  </head>
+  <body>
+  </body>
+</html>
