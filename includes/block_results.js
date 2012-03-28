@@ -599,16 +599,10 @@
   }, false);
   
   function try_process_search_results() {
-    var lis = document.querySelectorAll('li.g');
+    var lis = document.querySelectorAll('li.g:not(.gsbfiltered)');
     
     if(lis.length > 0) {
-      var ol = lis[0].parentNode;
-      
-      if(!has_class(ol,'gblock')) {
-        add_class(ol, 'gblock');
-        process_search_results(lis);
-        add_block_links_to_search_results();
-      }
+      process_search_results(lis);
     }
   }
   
@@ -618,8 +612,13 @@
     // compile list of unique search result hosts
     Array.prototype.forEach.call(list_items, function(li) {
       var a = li.querySelector('.vsc h3 a');
+      
+      // mark search result as processed
+      add_class(li, 'gsbfiltered');
+      
       if(a) {
         var host;
+        var result;
         
         // Google sometimes has links which are redirected via special urls:
         // google.tld/url?...&url=www.example.com
@@ -638,10 +637,14 @@
         if(!hosts_to_check.some(function(h) { return h == host})) {
           hosts_to_check.push(host);
         }
-        results.push({
+        
+        result = {
           element: li,
           host: host
-        });
+        }
+        results.push(result);
+        
+        add_block_links_to_search_result(result);
       }
     });
     
@@ -674,19 +677,17 @@
     });
   }
   
-  function add_block_links_to_search_results() {
-    results.forEach(function(result) {
-      var cite = result['element'].querySelector('.s .kv cite, .s cite.kv');
-      var ablock = document.createElement('a');
-      
-      ablock.href = '#';
-      ablock.onclick = on_block_result;
-      ablock.textContent = 'block ' + result['host'];
-      ablock.title = result['host'];
-      
-      cite.textContent += ' - ';
-      cite.appendChild(ablock);
-    });
+  function add_block_links_to_search_result(result) {
+    var cite = result['element'].querySelector('.s .kv cite, .s cite.kv');
+    var ablock = document.createElement('a');
+    
+    ablock.href = '#';
+    ablock.onclick = on_block_result;
+    ablock.textContent = 'block ' + result['host'];
+    ablock.title = result['host'];
+    
+    cite.textContent += ' - ';
+    cite.appendChild(ablock);
   }
   
   function on_block_result(e) {
