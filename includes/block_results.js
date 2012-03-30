@@ -629,7 +629,7 @@
           
           // Make sure we're in the right place
           if(matches && matches.length == 3 && /^\/url$/.test(a.pathname)) {
-            a.href = decodeURIComponent[2];;
+            a.href = decodeURIComponent(matches[2]);
           }
         }
         host = a.hostname;
