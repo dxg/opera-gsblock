@@ -681,6 +681,7 @@
     var cite = result['element'].querySelector('.s cite');
     var ablock = document.createElement('a');
     
+    // Some types of results do not have a cite. Eg: an imagebox
     if(cite) {
       ablock.href = '#';
       ablock.onclick = on_block_result;
@@ -689,8 +690,6 @@
       
       cite.textContent += ' - ';
       cite.appendChild(ablock);
-    } else {
-      console.log('gsblock: cite not found');
     }
   }
   
