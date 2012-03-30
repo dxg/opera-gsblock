@@ -681,13 +681,17 @@
     var cite = result['element'].querySelector('.s cite');
     var ablock = document.createElement('a');
     
-    ablock.href = '#';
-    ablock.onclick = on_block_result;
-    ablock.textContent = 'block ' + result['host'];
-    ablock.title = result['host'];
-    
-    cite.textContent += ' - ';
-    cite.appendChild(ablock);
+    if(cite) {
+      ablock.href = '#';
+      ablock.onclick = on_block_result;
+      ablock.textContent = 'block ' + result['host'];
+      ablock.title = result['host'];
+      
+      cite.textContent += ' - ';
+      cite.appendChild(ablock);
+    } else {
+      console.log('gsblock: cite not found');
+    }
   }
   
   function on_block_result(e) {
