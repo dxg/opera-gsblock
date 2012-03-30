@@ -611,7 +611,7 @@
     
     // compile list of unique search result hosts
     Array.prototype.forEach.call(list_items, function(li) {
-      var a = li.querySelector('.vsc h3 a');
+      var a = li.querySelector('h3.r a');
       
       // mark search result as processed
       add_class(li, 'gsbfiltered');
@@ -678,7 +678,7 @@
   }
   
   function add_block_links_to_search_result(result) {
-    var cite = result['element'].querySelector('.s .kv cite, .s cite.kv');
+    var cite = result['element'].querySelector('.s cite');
     var ablock = document.createElement('a');
     
     ablock.href = '#';
@@ -696,7 +696,7 @@
     var li = find_element_parent(e.target, 'li');
     
     if(li) {
-      var a = li.querySelector('.vsc h3 a');
+      var a = li.querySelector('h3.r a');
       background.postMessage({what: 'block host', host: a.hostname});
     }
     
