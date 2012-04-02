@@ -62,17 +62,25 @@
             });
             
             break;
-          case 'block host':
-            var new_host = event.data['host'].toLowerCase();
+          case 'block hosts':
+            var hosts = event.data['list'].map(function(host) {
+              return host.toLowerCase();
+            }).filter(function(host) {
+              var idx = host.search(/[*]/);
+              return host.length > 2 && idx == -1;
+            });
             
-            options['blocked_hosts'][new_host] = true;
+            hosts.forEach(function(host) {
+              options['blocked_hosts'][host] = true;
+            });
+            
             // make it persist
             save_option('blocked_hosts');
             
-            // tell everyone to block this host
-            opera.extension.broadcastMessage({
+            // tell userjs to block this host
+            message_clients('userjs',{
               what: 'block hosts',
-              list: [event.data['host']]
+              list: hosts
             });
             
             // update any open options pages

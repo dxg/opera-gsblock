@@ -31,7 +31,11 @@
     }
     #right {
       float: right;
-      width: 315px;
+      width: 330px;
+    }
+    #import textarea#txtimport {
+      width: 280px;
+      height: 120px;
     }
     #export textarea#txtexport {
       width: 280px;
@@ -43,6 +47,7 @@
     var background;
     var select;
     var txtexport;
+    var txtimport;
     
     opera.extension.onmessage = function(event) {
       // id
@@ -80,11 +85,20 @@
       
       select = document.querySelector('form .entry.blocked.hosts select');
       txtexport = document.querySelector('#txtexport');
+      txtimport = document.querySelector('#txtimport');
       opt_confirm_block = document.querySelector('#opt_confirm_block');
       
       document.querySelector('form button[data-role=remove]').addEventListener(
         'click',function(e) {
           delete_selected_hosts();
+          
+          e.stopPropagation();
+          return false;
+      },false);
+      
+      document.querySelector('form button[data-role=import]').addEventListener(
+        'click',function(e) {
+          import_hosts();
           
           e.stopPropagation();
           return false;
@@ -117,6 +131,17 @@
       txtexport.innerHTML = list.join("\n");
     }
     
+    function import_hosts() {
+      var str = txtimport.value;
+      
+      if(str && str.length > 2) {
+        var hosts = str.split(/\s+|[, ]+/).filter(function(h) { return h.length > 2});
+        
+        background.postMessage({what: 'block hosts', list: hosts });
+        txtimport.value = '';
+      }
+    }
+    
     function delete_selected_hosts() {
       var hosts = Array.prototype.filter.call(select.childNodes, function(opt) {
         return opt.selected;
@@ -140,6 +165,17 @@
       <div clas="entry confirm_block">
         <label for="opt_confirm_block" title="You will need to click block twice to block a host">Confirm block</label>
         <input type="checkbox" id="opt_confirm_block" />
+      </div>
+      
+      <div id="import">
+        <div class="entry">
+          <label for="txtimport">Import</label><br/>
+          <small>(newline/space/tab/comma separated, no wildcards)</small>
+          <textarea id="txtimport"></textarea>
+        </div>
+        <div class="entry">
+          <button data-role="import">Import</button>
+        </div>
       </div>
       
       <div id="export">

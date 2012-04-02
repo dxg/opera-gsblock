@@ -718,7 +718,7 @@
       
       if(li) {
         var a = li.querySelector('h3.r a');
-        background.postMessage({what: 'block host', host: a.hostname});
+        background.postMessage({what: 'block hosts', list: [a.hostname]});
       }
     } else {
       add_class(a,'gsb_confirmed');
