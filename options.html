@@ -29,9 +29,9 @@
     form .entry select option {
       padding: 2px 4px;
     }
-    #export {
+    #right {
       float: right;
-      width: 300px;
+      width: 315px;
     }
     #export textarea#txtexport {
       width: 280px;
@@ -63,26 +63,48 @@
           case 'all blocked hosts':
             update_blocked_hosts_list(event.data['list']);
             break;
+          case 'option':
+            switch(event.data['name']) {
+              case 'confirm_block':
+                opt_confirm_block.checked = event.data['value'];
+                break;
+            }
+            break;
         }
       }
     }
     
     window.addEventListener('DOMContentLoaded', function() {
       background.postMessage({what: 'get blocked hosts'});
+      background.postMessage({what: 'get option', name: 'confirm_block'});
+      
       select = document.querySelector('form .entry.blocked.hosts select');
       txtexport = document.querySelector('#txtexport');
+      opt_confirm_block = document.querySelector('#opt_confirm_block');
       
-      document.querySelector('button[data-role=remove]').addEventListener(
+      document.querySelector('form button[data-role=remove]').addEventListener(
         'click',function(e) {
           delete_selected_hosts();
           
           e.stopPropagation();
           return false;
       },false);
+      
+      opt_confirm_block.addEventListener('change',function(e) {
+        background.postMessage({
+          what: 'set option',
+          name: 'confirm_block',
+          value: this.checked
+        });
+      });
+      
+      
     });
     
     function update_blocked_hosts_list(list) {
       select.innerHTML = '';
+      
+      list.sort();
       list.forEach(function(item) {
         var option = document.createElement('option');
         
@@ -112,26 +134,37 @@
  <div id="container"> 
   <h2>Google search results blocker options</h2>
   
-  <div id="export">
-    <form onsubmit="return false;">
-      <div class="entry">
-        <label for="txtexport">Export</label>
-        <textarea readonly id="txtexport"></textarea>
+  <form onsubmit="return false;">
+    
+    <div id="right">
+      <div clas="entry confirm_block">
+        <label for="opt_confirm_block" title="You will need to click block twice to block a host">Confirm block</label>
+        <input type="checkbox" id="opt_confirm_block" />
       </div>
-    </form>
-  </div>
-  
-  <div id="list">
-    <form onsubmit="return false;">
-      <div class="entry blocked hosts">
-        <label for="bhosts">Blocked hosts</label>
-        <select size="20" multiple id="bhosts"></select>
+      
+      <div id="export">
+        <div class="entry">
+          <label for="txtexport">Export</label>
+          <textarea readonly id="txtexport"></textarea>
+        </div>
       </div>
-      <div class="entry">
-        <button data-role="remove">Remove</button>
+    </div>
+    
+    <div id="left">
+      <div id="list">
+        <form onsubmit="return false;">
+          <div class="entry blocked hosts">
+            <label for="bhosts">Blocked hosts</label>
+            <select size="20" multiple id="bhosts"></select>
+          </div>
+          <div class="entry">
+            <button data-role="remove">Remove</button>
+          </div>
+        </form>
       </div>
-    </form>
-  </div>
+    </div>
+    
+  </form>
   
   <div id="info">
     Currently, this does not sync with your google account.<br/>
