@@ -679,17 +679,23 @@
   
   function add_block_links_to_search_result(result) {
     var cite = result['element'].querySelector('.s cite');
-    var ablock = document.createElement('a');
     
     // Some types of results do not have a cite. Eg: an imagebox
     if(cite) {
+      var span = document.createElement('span');
+      var ablock = document.createElement('a');
+      
+      span.className = 'gsb_ai'; // gsb add item
+      span.textContent = ' - ';
+      
       ablock.href = '#';
       ablock.onclick = on_block_result;
       ablock.textContent = 'block ' + result['host'];
       ablock.title = result['host'];
+      ablock.style.color = cite.style.color;
       
-      cite.textContent += ' - ';
-      cite.appendChild(ablock);
+      span.appendChild(ablock);
+      cite.appendChild(span);
     }
   }
   
