@@ -2,15 +2,25 @@
 <html lang="en">
   <head>
     <script type="text/javascript">
+      /*
+       * This is the backend worker of the extension.
+       * All communication in/out is handled via html5 web messaging.
+       */
+      
+      // Hash of all connected clients by type.
+      // Eg. {options: [client], userjs: [client1, client2]}
       var clients = {};
+      
+      // A local variable cache of all options in the extensions local storage
       var options = {};
       
-      // stored as hash for faster searching
-      var blocked_hosts = {};
+      // When this extension has loaded, listen for connections
+      window.addEventListener('load', setup_connection, false);
       
-      window.addEventListener('load', setupConnection, false);
-      
-      function setupConnection(){
+      /*
+       * Initializes & logs all connections & disconnections
+       */
+      function setup_connection(){
         // When the injected script is activated, it connects with the background process.
         opera.extension.onconnect = function(event){
           event.source.postMessage({what: 'id', name: 'background'});
@@ -34,21 +44,24 @@
         opera.extension.onmessage = handle_message;
       }
       
+      /*
+       * Handles all incoming messages from both options & userjs scripts
+       */
       function handle_message(event) {
         switch(event.data['what']) {
           case 'id':
             // add client to list of clients
             if(!clients[event.data['name']]) clients[event.data['name']] = [];
             clients[event.data['name']].push(event.source);
-            
             break;
+          
           case 'get blocked hosts':
             event.source.postMessage({
               what: 'all blocked hosts',
               list: get_blocked_hosts_list()
             });
-            
             break;
+          
           case 'check hosts':
             // Get list of received hosts which should be blocked
             var list = event.data['hosts'].filter(function(host) {
@@ -60,8 +73,8 @@
               what: 'block hosts',
               list: list
             });
-            
             break;
+          
           case 'block hosts':
             var hosts = event.data['list'].map(function(host) {
               return host.toLowerCase();
@@ -88,8 +101,8 @@
               what: 'all blocked hosts',
               list: get_blocked_hosts_list()
             });
-            
             break;
+          
           case 'unblock hosts':
             event.data['list'].forEach(function(host) {
               delete options['blocked_hosts'][host]
@@ -107,16 +120,16 @@
               what: 'unblock hosts',
               list: event.data['list']
             });
-            
             break;
+          
           case 'get option':
             event.source.postMessage({
               what: 'option',
               name: event.data['name'],
               value: options[event.data['name']]
             });
-            
             break;
+          
           case 'set option':
             var name = event.data['name'];
             set_option(name, event.data['value']);
@@ -132,11 +145,16 @@
                 });
                 break;
             }
-            
             break;
         }
       }
       
+      /*
+       * Sends a message to all clients of a particular type
+       *
+       * type: client type, one of ['options','userjs]
+       * data: javascript hash-like object containing the data
+       */
       function message_clients(type, data) {
         if(clients[type]) {
           clients[type].forEach(function(source) {
@@ -152,26 +170,33 @@
         }
       }
       
-      // as an array
+      /*
+       * Returns a list of blocked hosts in an array.
+       * Normally it's stored as a hash for speed.
+       */
       function get_blocked_hosts_list() {
         var list = [];
         for(var host in options['blocked_hosts']) { list.push(host); }
         return list;
       }
       
-      // hosts: hash of blocked hosts
-      function save_blocked_hosts(hosts) {
-        widget.preferences.setItem('blocked hosts', JSON.stringify(hosts));
-      }
-      
+      /*
+       * Sets the value of an option
+       */
       function set_option(name, value) {
         options[name] = value;
       }
       
+      /*
+       * Saves a particular option to the widgets local storage
+       */
       function save_option(name) {
         widget.preferences.setItem(name, JSON.stringify(options[name]));
       }
       
+      /*
+       * Loads all options into a local variable from the widgets local storage.
+       */
       function load_options() {
         var a, key;
         for(a = 0; a < widget.preferences.length; a++) {
@@ -184,6 +209,9 @@
         if(typeof options['confirm_block'] == 'undefined') options['confirm_block'] = false;
       }
       
+      /*
+       * Saves all options to local storage
+       */
       function save_options() {
         for(key in options) {
           widget.preferences.setItem(key,JSON.stringify(options[key]));

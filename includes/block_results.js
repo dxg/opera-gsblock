@@ -559,13 +559,21 @@
 // ==/UserScript==
 
 (function ()
-{ 
+{
+  // Background worker reference for messaging
   var background;
+  // Search results on page
   var results = [];
+  // List of google owned search host names
   var google_hosts = ['encrypted.google.com', 'www.google.ad', 'www.google.ae', 'www.google.am', 'www.google.as', 'www.google.at', 'www.google.az', 'www.google.ba', 'www.google.be', 'www.google.bf', 'www.google.bg', 'www.google.bi', 'www.google.bj', 'www.google.bs', 'www.google.by', 'www.google.ca', 'www.google.cat', 'www.google.cd', 'www.google.cf', 'www.google.cg', 'www.google.ch', 'www.google.ci', 'www.google.cl', 'www.google.cm', 'www.google.cn', 'www.google.co.bw', 'www.google.co.ck', 'www.google.co.cr', 'www.google.co.id', 'www.google.co.il', 'www.google.co.in', 'www.google.co.jp', 'www.google.co.ke', 'www.google.co.kr', 'www.google.co.ls', 'www.google.co.ma', 'www.google.co.mz', 'www.google.co.nz', 'www.google.co.th', 'www.google.co.tz', 'www.google.co.ug', 'www.google.co.uk', 'www.google.co.uz', 'www.google.co.ve', 'www.google.co.vi', 'www.google.co.za', 'www.google.co.zm', 'www.google.co.zw', 'www.google.com', 'www.google.com.af', 'www.google.com.ag', 'www.google.com.ai', 'www.google.com.ar', 'www.google.com.au', 'www.google.com.bd', 'www.google.com.bh', 'www.google.com.bn', 'www.google.com.bo', 'www.google.com.br', 'www.google.com.by', 'www.google.com.bz', 'www.google.com.co', 'www.google.com.cu', 'www.google.com.do', 'www.google.com.ec', 'www.google.com.eg', 'www.google.com.et', 'www.google.com.fj', 'www.google.com.gh', 'www.google.com.gi', 'www.google.com.gt', 'www.google.com.hk', 'www.google.com.jm', 'www.google.com.kh', 'www.google.com.kw', 'www.google.com.lb', 'www.google.com.ly', 'www.google.com.mt', 'www.google.com.mx', 'www.google.com.my', 'www.google.com.na', 'www.google.com.nf', 'www.google.com.ng', 'www.google.com.ni', 'www.google.com.np', 'www.google.com.om', 'www.google.com.pa', 'www.google.com.pe', 'www.google.com.ph', 'www.google.com.pk', 'www.google.com.pr', 'www.google.com.py', 'www.google.com.qa', 'www.google.com.sa', 'www.google.com.sb', 'www.google.com.sg', 'www.google.com.sl', 'www.google.com.sv', 'www.google.com.tj', 'www.google.com.tr', 'www.google.com.tw', 'www.google.com.ua', 'www.google.com.uy', 'www.google.com.vc', 'www.google.com.vn', 'www.google.cz', 'www.google.de', 'www.google.dj', 'www.google.dk', 'www.google.dm', 'www.google.dz', 'www.google.ee', 'www.google.es', 'www.google.fi', 'www.google.fm', 'www.google.fr', 'www.google.ga', 'www.google.ge', 'www.google.gg', 'www.google.gl', 'www.google.gm', 'www.google.gp', 'www.google.gr', 'www.google.gy', 'www.google.hn', 'www.google.hr', 'www.google.ht', 'www.google.hu', 'www.google.ie', 'www.google.im', 'www.google.is', 'www.google.it', 'www.google.it.ao', 'www.google.je', 'www.google.jo', 'www.google.kg', 'www.google.ki', 'www.google.kz', 'www.google.la', 'www.google.li', 'www.google.lk', 'www.google.lt', 'www.google.lu', 'www.google.lv', 'www.google.md', 'www.google.me', 'www.google.mg', 'www.google.mk', 'www.google.ml', 'www.google.mn', 'www.google.ms', 'www.google.mu', 'www.google.mv', 'www.google.mw', 'www.google.ne', 'www.google.nl', 'www.google.no', 'www.google.nr', 'www.google.nu', 'www.google.pl', 'www.google.pn', 'www.google.ps', 'www.google.pt', 'www.google.ro', 'www.google.rs', 'www.google.ru', 'www.google.rw', 'www.google.sc', 'www.google.se', 'www.google.sh', 'www.google.si', 'www.google.sk', 'www.google.sm', 'www.google.sn', 'www.google.st', 'www.google.td', 'www.google.tg', 'www.google.tk', 'www.google.tl', 'www.google.tm', 'www.google.to', 'www.google.tt', 'www.google.vg', 'www.google.vu', 'www.google.ws'];
+  // JS Interval reference for interval which polls page for new search results
   var check_interval;
+  // Option which indicates if the user needs to confirming blocking a host
   var confirm_block;
   
+  /*
+   * Event handler for incoming messages
+   */
   opera.extension.onmessage = function(event) {
     
     if(event.data['what'] == 'id') {
@@ -608,6 +616,10 @@
     check_interval = window.setInterval(try_process_search_results,500);
   }, false);
   
+  /*
+   * Checks the page for any new not previously filtered search results and if
+   * they are found, processes them.
+   */
   function try_process_search_results() {
     var lis = document.querySelectorAll('li.g:not(.gsbfiltered)');
     
@@ -616,6 +628,13 @@
     }
   }
   
+  /*
+   * Mark each new search result as filtered, obtain a url (remove google
+   * redirect if present), and then send the list to the backend worker asking
+   * which results should be blocked.
+   *
+   * list_items: array of LI elements containing unchecked search results
+   */
   function process_search_results(list_items) {
     var hosts_to_check = [];
     
@@ -633,7 +652,8 @@
         // Google sometimes has links which are redirected via special urls:
         // google.tld/url?...&url=www.example.com
         // google.tld/...q=www.example.com
-        // Remove these redirects; replace links with direct links
+        // Remove these redirects; replace links with direct links.
+        // Note: this does not remove javascript-based redirects.
         if(google_hosts.some(function(host) { return host == a.hostname})) {
           var matches = /[&?](url|q)=([^&]+)/.exec(a.href)
           
@@ -664,7 +684,11 @@
     }
   }
   
-  // Removes search results with blocked hosts
+  /*
+   * Removes search results which point to any of the provided hosts
+   *
+   * hosts: array of hosts to block
+   */
   function block_search_results(hosts) {
     results.forEach(function(result) {
       if( hosts.some(function(host) { return host == result['host'] }) ) {
@@ -676,7 +700,11 @@
     });
   }
   
-  // Removes search results with blocked hosts
+  /*
+   * Unblocks search results which point to any of the provided hosts
+   *
+   * hosts: array of hosts to unblock
+   */
   function unblock_search_results(hosts) {
     results.forEach(function(result) {
       if( hosts.some(function(host) { return host == result['host'] }) ) {
@@ -687,6 +715,11 @@
     });
   }
   
+  /*
+   * Adds a block link to the specified search result
+   *
+   * result: LI search result
+   */
   function add_block_links_to_search_result(result) {
     var cite = result['element'].querySelector('.s cite');
     
@@ -709,6 +742,11 @@
     }
   }
   
+  /*
+   * When a user clicks the 'block' link in a serch result, block it
+   *
+   * e: event sent by the click action on the block link
+   */
   function on_block_result_click(e) {
     var a = e.target;
     e.stopPropagation();
@@ -730,10 +768,12 @@
   
   // ------ Utilities ---------
   
-  // Finds the parent of an element of the type specified
-  // params:
-  //   element: start element
-  //   parentType: nodeName of parent we are looking for
+  /*
+   * Finds the first parent of an element that's of the type specified
+   *
+   * element: start element
+   * parentType: nodeName of parent we are looking for
+   */
   function find_element_parent(element, parentType) {
     var parent = element.parentNode;
     var type = parentType.toUpperCase();
@@ -745,16 +785,38 @@
     return undefined;
   }
   
+  /*
+   * Add a class to a DOM element
+   *
+   * element: target DOM element
+   * klass: class to add
+   */
   function add_class(element, klass) {
-    if(element.className && element.className.length > 0) {
-      element.className += ' ';
+    if(!has_class(element, klass)) {
+      if(element.className && element.className.length > 0) {
+        element.className += ' ';
+      }
+      element.className += klass;
     }
-    element.className += klass;
   }
+  
+  /*
+   * Remove a class from a DOM element
+   *
+   * element: target DOM element
+   * klass: class to remove
+   */
   function remove_class(element, klass) {
     element.className = 
       element.className.replace(RegExp('(?:^|\s)' + klass + '(?!\S)'), '');
   }
+  
+  /*
+   * Check if a DOM element has the specified class assigned
+   *
+   * element: target DOM element
+   * klass: class to check
+   */
   function has_class(element, klass) {
     var re = RegExp('\\b' + klass + '\\b');
     return re.test(element.className);

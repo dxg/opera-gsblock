@@ -44,13 +44,20 @@
   </style>
   
   <script type="text/javascript">
+    // Background worker reference for messaging
     var background;
+    // Select box listing blocked hosts
     var select;
+    // Textarea containing list of hosts for exporting
     var txtexport;
+    // Textarea where user can input hosts to block
     var txtimport;
     
+    /*
+     * Event handler for incoming messages
+     */
     opera.extension.onmessage = function(event) {
-      // id
+      // When someone identifies, send back our id
       if(event.data['what'] == 'id') {
         switch(event.data['name']) {
           case 'background':
@@ -59,6 +66,7 @@
         event.source.postMessage({what: 'id', name: 'options'});
       }
       
+      // Handle messages from background worker
       if(event.source == background) {
         switch(event.data['what']) {
           case 'blocked hosts':
@@ -88,6 +96,7 @@
       txtimport = document.querySelector('#txtimport');
       opt_confirm_block = document.querySelector('#opt_confirm_block');
       
+      // Enable deletion of blocked hosts
       document.querySelector('form button[data-role=remove]').addEventListener(
         'click',function(e) {
           delete_selected_hosts();
@@ -96,6 +105,7 @@
           return false;
       },false);
       
+      // Enable importing hosts to block list
       document.querySelector('form button[data-role=import]').addEventListener(
         'click',function(e) {
           import_hosts();
@@ -104,6 +114,7 @@
           return false;
       },false);
       
+      // Enable saving 'confirm block' setting
       opt_confirm_block.addEventListener('change',function(e) {
         background.postMessage({
           what: 'set option',
@@ -115,6 +126,11 @@
       
     });
     
+    /*
+     * Update list of blocked hosts on the options page
+     *
+     * list: array of blocked hosts to update the options page with
+     */
     function update_blocked_hosts_list(list) {
       select.innerHTML = '';
       
@@ -131,6 +147,9 @@
       txtexport.innerHTML = list.join("\n");
     }
     
+    /*
+     * Import blocked hosts from the import textarea
+     */
     function import_hosts() {
       var str = txtimport.value;
       
@@ -142,6 +161,9 @@
       }
     }
     
+    /*
+     * Removes any hosts selected in the select box from the list of blocked hosts
+     */
     function delete_selected_hosts() {
       var hosts = Array.prototype.filter.call(select.childNodes, function(opt) {
         return opt.selected;
