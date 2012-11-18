@@ -50,9 +50,14 @@
       function handle_message(event) {
         switch(event.data['what']) {
           case 'id':
+            var type = event.data['name'];
             // add client to list of clients
-            if(!clients[event.data['name']]) clients[event.data['name']] = [];
-            clients[event.data['name']].push(event.source);
+            if(!clients[type]) clients[type] = [];
+            
+            // make sure client isn't already in list
+            if(clients[type].indexOf(event.source) == -1) {
+              clients[type].push(event.source);
+            }
             break;
           
           case 'get blocked hosts':
@@ -129,6 +134,18 @@
               value: options[event.data['name']]
             });
             break;
+          case 'get userjs options':
+            event.source.postMessage({
+              what: 'options',
+              value: userjs_options()
+            });
+            break;
+          case 'get full options':
+            event.source.postMessage({
+              what: 'options',
+              value: full_options()
+            });
+            break;
           
           case 'set option':
             var name = event.data['name'];
@@ -137,11 +154,11 @@
             
             switch(name) {
               case 'confirm_block':
+              case 'remove_redirects':
                 // alert userjs of the change
                 message_clients('userjs',{
-                  what: 'option',
-                  name: 'confirm_block',
-                  value: options[name]
+                  what: 'options',
+                  value: userjs_options()
                 });
                 break;
             }
@@ -195,6 +212,27 @@
       }
       
       /*
+       * UserJS specific options
+       */
+      function userjs_options() {
+        return {
+          confirm_block:    options['confirm_block'],
+          remove_redirects: options['remove_redirects']
+        };
+      }
+      
+      /*
+       * Full options
+       */
+      function full_options() {
+        return {
+          blocked_hosts:    get_blocked_hosts_list(),
+          confirm_block:    options['confirm_block'],
+          remove_redirects: options['remove_redirects']
+        };
+      }
+      
+      /*
        * Loads all options into a local variable from the widgets local storage.
        */
       function load_options() {
@@ -205,8 +243,9 @@
         }
         
         // Incase options are not imported properly
-        if(typeof options['blocked_hosts'] == 'undefined') options['blocked_hosts'] = {};
-        if(typeof options['confirm_block'] == 'undefined') options['confirm_block'] = false;
+        if(typeof options['blocked_hosts']    == 'undefined') options['blocked_hosts'] = {};
+        if(typeof options['confirm_block']    == 'undefined') options['confirm_block'] = true;
+        if(typeof options['remove_redirects'] == 'undefined') options['remove_redirects'] = false;
       }
       
       /*

@@ -45,56 +45,43 @@
   
   <script type="text/javascript">
     // Background worker reference for messaging
-    var background;
+    var background = opera.extension;
     // Select box listing blocked hosts
     var select;
     // Textarea containing list of hosts for exporting
     var txtexport;
     // Textarea where user can input hosts to block
     var txtimport;
+    // Checkboxes
+    var opt_confirm_block;
+    var opt_remove_redirects;
     
     /*
      * Event handler for incoming messages
      */
     opera.extension.onmessage = function(event) {
-      // When someone identifies, send back our id
-      if(event.data['what'] == 'id') {
-        switch(event.data['name']) {
-          case 'background':
-            background = event.source;
-        }
-        event.source.postMessage({what: 'id', name: 'options'});
-      }
-      
       // Handle messages from background worker
-      if(event.source == background) {
-        switch(event.data['what']) {
-          case 'blocked hosts':
-            remove_search_results(event.data['blocked_hosts']);
-            add_block_links_to_search_results();
-            break;
-          case 'all blocked hosts':
-            update_blocked_hosts_list(event.data['list']);
-            break;
-          case 'option':
-            switch(event.data['name']) {
-              case 'confirm_block':
-                opt_confirm_block.checked = event.data['value'];
-                break;
-            }
-            break;
-        }
+      switch(event.data['what']) {
+        case 'all blocked hosts':
+          update_blocked_hosts_list(event.data['list']);
+          break;
+        case 'options':
+          update_blocked_hosts_list(event.data['value']['blocked_hosts']);
+          opt_confirm_block.checked    = event.data['value']['confirm_block'];
+          opt_remove_redirects.checked = event.data['value']['remove_redirects'];
+          break;
       }
     }
     
     window.addEventListener('DOMContentLoaded', function() {
-      background.postMessage({what: 'get blocked hosts'});
-      background.postMessage({what: 'get option', name: 'confirm_block'});
+      background.postMessage({what: 'id', name: 'options'});
+      background.postMessage({what: 'get full options'});
       
-      select = document.querySelector('form .entry.blocked.hosts select');
-      txtexport = document.querySelector('#txtexport');
-      txtimport = document.querySelector('#txtimport');
-      opt_confirm_block = document.querySelector('#opt_confirm_block');
+      select               = document.querySelector('form .entry.blocked.hosts select');
+      txtexport            = document.querySelector('#txtexport');
+      txtimport            = document.querySelector('#txtimport');
+      opt_confirm_block    = document.querySelector('#opt_confirm_block');
+      opt_remove_redirects = document.querySelector('#opt_remove_redirects');
       
       // Enable deletion of blocked hosts
       document.querySelector('form button[data-role=remove]').addEventListener(
@@ -122,7 +109,14 @@
           value: this.checked
         });
       });
-      
+      // Enable saving 'remove_redirects' setting
+      opt_remove_redirects.addEventListener('change',function(e) {
+        background.postMessage({
+          what: 'set option',
+          name: 'remove_redirects',
+          value: this.checked
+        });
+      });
       
     });
     
@@ -184,9 +178,14 @@
   <form onsubmit="return false;">
     
     <div id="right">
-      <div clas="entry confirm_block">
+      <div class="entry">
         <label for="opt_confirm_block" title="You will need to click block twice to block a host">Confirm block</label>
         <input type="checkbox" id="opt_confirm_block" />
+      </div>
+      
+      <div class="entry">
+        <label for="opt_remove_redirects" title="Remove googles redirects">Remove redirects</label>
+        <input type="checkbox" id="opt_remove_redirects" />
       </div>
       
       <div id="import">

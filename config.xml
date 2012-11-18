@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<widget xmlns="http://www.w3.org/ns/widgets" version="1.25" id="http://www.example.org/gsblock">
+<widget xmlns="http://www.w3.org/ns/widgets" version="1.30" id="http://www.example.org/gsblock">
   <name short="Gsblock">Google search results blocker</name>
   <description>
     Lets you block google search results per host.
@@ -12,5 +12,6 @@
   <icon src="images/icon256.png"/>
   
   <preference name="blocked_hosts" value="{}" />
-  <preference name="confirm_block" value="false" />
+  <preference name="confirm_block" value="true" />
+  <preference name="remove_redirects" value="false" />
 </widget>

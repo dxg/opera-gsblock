@@ -2,9 +2,11 @@
 
 This has similar functionality to Google Chrome's *Personal Blocklist* extension.
 
-However:
-* It does not currently sync with google
+However, it does not currently sync with google.
 
-## This is an early release.
+Features:
+* Allows you to block google search results based on hostnames.
+* Allows you to remove google search redirects (optional).
 
-As such, it may be quite broken.
+Available here: [https://addons.opera.com/en/addons/extensions/details/google-search-results-blocker?display=en](https://addons.opera.com/en/addons/extensions/details/google-search-results-blocker?display=en)
+or download in the downloads section.
