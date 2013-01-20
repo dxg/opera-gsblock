@@ -6,6 +6,13 @@
        * This is the backend worker of the extension.
        * All communication in/out is handled via html5 web messaging.
        */
+       
+      // Core extensions
+      
+      // http://stackoverflow.com/questions/280634/endswith-in-javascript
+      String.prototype.endsWith = function(suffix) {
+        return this.indexOf(suffix, this.length - suffix.length) !== -1;
+      };
       
       // Hash of all connected clients by type.
       // Eg. {options: [client], userjs: [client1, client2]}
@@ -63,67 +70,47 @@
           case 'get blocked hosts':
             event.source.postMessage({
               what: 'all blocked hosts',
-              list: get_blocked_hosts_list()
+              list: blocked_hosts_list()
             });
             break;
           
           case 'check hosts':
-            // Get list of received hosts which should be blocked
-            var list = event.data['hosts'].filter(function(host) {
-              return !!options['blocked_hosts'][host];
-            });
+            var marked_hosts = mark_hosts(event.data['hosts']);
             
             // notify userjs about which hosts to block
             event.source.postMessage({
-              what: 'block hosts',
-              list: list
+              what: 'marked hosts',
+              marked_hosts: marked_hosts
             });
             break;
           
           case 'block hosts':
-            var hosts = event.data['list'].map(function(host) {
-              return host.toLowerCase();
-            }).filter(function(host) {
-              var idx = host.search(/[*]/);
-              return host.length > 2 && idx == -1;
-            });
+            var list = block_hosts(event.data['list']);
             
-            hosts.forEach(function(host) {
-              options['blocked_hosts'][host] = true;
-            });
-            
-            // make it persist
-            save_option('blocked_hosts');
-            
-            // tell userjs to block this host
+            // tell userjs something changed
             message_clients('userjs',{
-              what: 'block hosts',
-              list: hosts
+              what: 'block list changed'
             });
             
             // update any open options pages
             message_clients('options', {
               what: 'all blocked hosts',
-              list: get_blocked_hosts_list()
+              list: blocked_hosts_list()
             });
             break;
           
           case 'unblock hosts':
-            event.data['list'].forEach(function(host) {
-              delete options['blocked_hosts'][host]
-            });
-            save_option('blocked_hosts');
+            unblock_hosts(event.data['list']);
             
             // update any open options pages
             message_clients('options', {
               what: 'all blocked hosts',
-              list: get_blocked_hosts_list()
+              list: blocked_hosts_list()
             });
             
-            // unblock results on any open google search pages
+            // tell userjs something changed
             message_clients('userjs', {
-              what: 'unblock hosts',
-              list: event.data['list']
+              what: 'block list changed'
             });
             break;
           
@@ -187,13 +174,100 @@
         }
       }
       
+      function block_hosts(hosts_in) {
+        // Filter out invalid hosts.
+        // Valid hosts: a.b.c.d, b.c.d, c.d, *.b.c.d, *.d, ...
+        var hosts = normalize_hosts(hosts_in).filter(function(host) {
+          var index = host.search(/^(\*\.)?([^\*\.\/]+\.)*([^\*\.\/]+)$/);
+          return (host.length > 2) &&
+                 index == 0 &&
+                 !is_host_blocked(host)
+        });
+        
+        hosts.forEach(function(host) {
+          options['blocked_hosts'][host] = true;
+          
+          // purge hosts which are now covered by a wildcard
+          if(host.substr(0,2) == '*.') {
+            var wildcard_host = host.substr(2)
+            var key;
+            
+            for(key in options['blocked_hosts']) {
+              if(key != host && key.endsWith(wildcard_host)) {
+                delete options['blocked_hosts'][key];
+              }
+            }
+          }
+        });
+        
+        // persist changed settings
+        save_option('blocked_hosts');
+        
+        return hosts;
+      }
+      
+      function unblock_hosts(hosts_in) {
+        normalize_hosts(hosts_in).forEach(function(host) {
+          delete options['blocked_hosts'][host];
+        });
+        save_option('blocked_hosts');
+      }
+      
+      // Mark each host as blocked/not
+      function mark_hosts(hosts_in) {
+        var marked = {};
+        
+        hosts_in.forEach(function(host) {
+          marked[host] = is_host_blocked(host);
+        });
+        
+        return marked;
+      }
+      
+      function is_host_blocked(host) {
+        if(options['blocked_hosts'][host]) {
+          return true;
+        }
+        
+        var key;
+        var parts = host.split('.');
+        
+        // For host 'thing.bcd.example.com',
+        // check the presence of the following wildcard hosts in this order:
+        // *.com, *.example.com, *.bcd.example.com
+        if(parts.length > 1) {
+          var a, b;
+          for(a = 1; a < parts.length; a++) {
+            var arr = ['*'];
+            for(b = parts.length - a; b < parts.length; b++) {
+              arr.push(parts[b]);
+            }
+            wild_host = arr.join('.');
+            
+            if(options['blocked_hosts'][wild_host]) {
+              return true;
+            }
+          }
+        }
+        
+        return false;
+      }
+      
+      function normalize_hosts(hosts_in) {
+        return hosts_in.map(function(host) {
+          return host.toLowerCase();
+        });
+      }
+      
       /*
        * Returns a list of blocked hosts in an array.
        * Normally it's stored as a hash for speed.
        */
-      function get_blocked_hosts_list() {
-        var list = [];
-        for(var host in options['blocked_hosts']) { list.push(host); }
+      function blocked_hosts_list() {
+        var host, list = [];
+        for(host in options['blocked_hosts']) {
+          list.push(host);
+        }
         return list;
       }
       
@@ -226,7 +300,7 @@
        */
       function full_options() {
         return {
-          blocked_hosts:    get_blocked_hosts_list(),
+          blocked_hosts:    blocked_hosts_list(),
           confirm_block:    options['confirm_block'],
           remove_redirects: options['remove_redirects']
         };

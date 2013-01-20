@@ -583,11 +583,11 @@
             start_monitoring_search_results();
           }
           break;
-        case 'block hosts':
-          block_search_results(event.data['list']);
+        case 'block list changed':
+          check_results();
           break;
-        case 'unblock hosts':
-          unblock_search_results(event.data['list']);
+        case 'marked hosts':
+          update_results_state(event.data['marked_hosts']);
           break;
       }
     }
@@ -621,8 +621,37 @@
     var lis = document.querySelectorAll('li.g:not(.gsbfiltered)');
     
     if(lis.length > 0) {
-      process_search_results(lis);
+      discard_stale_results();
+      process_new_search_results(lis);
     }
+  }
+  
+  /*
+   * Remove results which are no longer on the page.
+   * This may happen if the user goes to page 2.
+   *
+   */
+  function discard_stale_results() {
+    results = results.filter(function(result) {
+      if(element_in_document(result.element)) {
+        return true;
+      } else {
+        restore_search_results([result]);
+        return false;
+      }
+    });
+  }
+  
+  /*
+   * Unblock and return the results to their original state
+   *
+   */
+  function restore_search_results(results_in) {
+    unblock_search_results(results_in);
+    
+    results_in.forEach(function(result) {
+      result.element.classList.remove('gsbfiltered');
+    });
   }
   
   /*
@@ -632,7 +661,7 @@
    *
    * list_items: array of LI elements containing unchecked search results
    */
-  function process_search_results(list_items) {
+  function process_new_search_results(list_items) {
     var hosts_to_check = [];
     
     // compile list of unique search result hosts
@@ -640,7 +669,7 @@
       var a = li.querySelector('h3.r a');
       
       // mark search result as processed
-      add_class(li, 'gsbfiltered');
+      li.classList.add('gsbfiltered');
       
       if(a) {
         var host;
@@ -656,7 +685,9 @@
         
         result = {
           element: li,
-          host: host
+          host: host,
+          display: li.style.display,
+          blocked: false
         }
         results.push(result);
         
@@ -699,33 +730,60 @@
   }
   
   /*
-   * Removes search results which point to any of the provided hosts
+   * Send all hostnames to backend to be checked.
    *
-   * hosts: array of hosts to block
    */
-  function block_search_results(hosts) {
-    results.forEach(function(result) {
-      if( hosts.some(function(host) { return host == result['host'] }) ) {
-        result['display'] = result['element'].style.display;
-        result['element'].style.display = 'none';
-        add_class(result['element'],'blocked');
-        result['blocked'] = true;
+  function check_results() {
+    hosts_to_check = results.map(function(result) { return result.host; });
+    
+    if(hosts_to_check.length > 0) {
+      background.postMessage({what: 'check hosts', hosts: hosts_to_check});
+    }
+  }
+  
+  /*
+   * Block results if true, unblock if false
+   *
+   * marked_hosts: hash where key is hostname, value is blocked(true)/not status
+   */
+  function update_results_state(marked_hosts) {
+    var host;
+    
+    for(host in marked_hosts) {
+      var matching_results = results.filter(function(result) {
+        return result.host == host
+      });
+      
+      if(marked_hosts[host]) {
+        block_search_results(matching_results);
+      } else {
+        unblock_search_results(matching_results);
       }
+    }
+  }
+  
+  /*
+   * Hides search results which point to any of the provided hosts
+   *
+   */
+  function block_search_results(results_in) {
+    results_in.forEach(function(result) {
+      result.display = result.element.style.display;
+      result.element.style.display = 'none';
+      result.element.classList.add('blocked');
+      result.blocked = true;
     });
   }
   
   /*
-   * Unblocks search results which point to any of the provided hosts
+   * Unhides search results which point to any of the provided hosts
    *
-   * hosts: array of hosts to unblock
    */
-  function unblock_search_results(hosts) {
-    results.forEach(function(result) {
-      if( hosts.some(function(host) { return host == result['host'] }) ) {
-        result['element'].style.display = result['display'];
-        remove_class(result['element'],'blocked');
-        result['blocked'] = false;
-      }
+  function unblock_search_results(results_in) {
+    results_in.forEach(function(result) {
+      result.element.style.display = result.display;
+      result.element.classList.remove('blocked');
+      result.blocked = false;
     });
   }
   
@@ -735,23 +793,39 @@
    * result: LI search result
    */
   function add_block_links_to_search_result(result) {
-    var cite = result['element'].querySelector('.s cite');
+    var cite = result.element.querySelector('.s cite');
     
     // Some types of results do not have a cite. Eg: an imagebox
     if(cite) {
-      var span = document.createElement('span');
+      var span   = document.createElement('span');
       var ablock = document.createElement('a');
+      var span2  = document.createElement('span');
+      var awild  = document.createElement('a');
       
-      span.className = 'gsb_ai'; // gsb add item
+      span.className   = 'gsb_ai'; // gsb add item
       span.textContent = ' - ';
       
-      ablock.href = '#';
-      ablock.onclick = on_block_result_click;
-      ablock.textContent = 'block ' + result['host'];
-      ablock.title = result['host'];
-      ablock.style.color = cite.style.color;
+      ablock.href           = '#';
+      ablock.className      = 'gsb_block';
+      ablock.onclick        = on_block_result_click;
+      ablock.data           = {};
+      ablock.data.host      = result.host;
+      ablock.data.wild_host = result.host;
+      ablock.title          = result.host;
+      ablock.style.color    = cite.style.color;
+      set_block_link_text(ablock, true);
+      
+      span2.textContent = ' - ';
+      
+      awild.href        = '#';
+      awild.onclick     = on_wildcard_click;
+      awild.textContent = '*';
+      awild.title       = 'Toggle widlcard';
+      awild.style.color = cite.style.color;
       
       span.appendChild(ablock);
+      span.appendChild(span2);
+      span.appendChild(awild);
       cite.appendChild(span);
     }
   }
@@ -765,19 +839,48 @@
     var a = e.target;
     e.stopPropagation();
     
-    if(!options.confirm_block || options.confirm_block && has_class(a, 'gsb_confirmed')) {
-      var li = find_element_parent(e.target, 'li');
-      
-      if(li) {
-        var a = li.querySelector('h3.r a');
-        background.postMessage({what: 'block hosts', list: [a.hostname]});
-      }
+    if(!options.confirm_block || options.confirm_block && a.classList.contains('gsb_confirmed')) {
+      background.postMessage({what: 'block hosts', list: [a.data.wild_host]});
     } else {
-      add_class(a,'gsb_confirmed');
-      a.textContent += ' [confirm]';
+      a.classList.add('gsb_confirmed');
+      set_block_link_text(a, false);
     }
     
     return false;
+  }
+  
+  /*
+   * When a user click the toggle wildcard link, toggle the position of
+   * the wildcard character.
+   *
+   * e: event sent by the click action on the block link
+   */
+  function on_wildcard_click(e) {
+    var a_wild = e.target;
+    var a_block = a_wild.parentNode.querySelector('a.gsb_block');
+    e.stopPropagation();
+    
+    if(a_block) {
+      a_block.data.wild_host = toggle_hostname_wildcard(a_block.data.host, a_block.data.wild_host);
+      set_block_link_text(a_block, true);
+    }
+    
+    return false;
+  }
+  
+  /*
+   * Generate text for block link based on current state & host
+   */
+  function set_block_link_text(a_block, reset_confirm) {
+    if(reset_confirm) {
+      a_block.classList.remove('gsb_confirmed');
+      confirm = false;
+    } else {
+      confirm = true
+    }
+    
+    postfix = confirm ? ' [confirm]' : '';
+    a_block.textContent = 'block ' + a_block.data.wild_host + postfix;
   }
   
   // ------ Utilities ---------
@@ -800,40 +903,29 @@
   }
   
   /*
-   * Add a class to a DOM element
-   *
-   * element: target DOM element
-   * klass: class to add
+   * With full host: blah.gff.site.com, the toggle order will be:
+   * *.gff.site.com -> *.site.com -> blah.gff.site.com
    */
-  function add_class(element, klass) {
-    if(!has_class(element, klass)) {
-      if(element.className && element.className.length > 0) {
-        element.className += ' ';
-      }
-      element.className += klass;
+  function toggle_hostname_wildcard(full_host, wild_host) {
+    var next = wild_host.replace(/(\*\.)?[^\.]+/,'*');
+    if(next.indexOf('.') == next.lastIndexOf('.')) {
+      next = full_host;
     }
+    return next;
   }
-  
+
   /*
-   * Remove a class from a DOM element
+   * Checks if the element is attached to the DOM
    *
-   * element: target DOM element
-   * klass: class to remove
+   * http://stackoverflow.com/questions/5629684/javascript-check-if-element-exists-in-the-dom
    */
-  function remove_class(element, klass) {
-    element.className = 
-      element.className.replace(RegExp('(?:^|\s)' + klass + '(?!\S)'), '');
-  }
-  
-  /*
-   * Check if a DOM element has the specified class assigned
-   *
-   * element: target DOM element
-   * klass: class to check
-   */
-  function has_class(element, klass) {
-    var re = RegExp('\\b' + klass + '\\b');
-    return re.test(element.className);
+  var element_in_document = function(element) {
+    while(element = element.parentNode) {
+      if(element == document) {
+        return true;
+      }
+    }
+    return false;
   }
   
   setup();
